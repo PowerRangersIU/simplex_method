@@ -42,14 +42,38 @@ public class Simplex {
             for (int j = 0; j < n_vars; j++) {
                 table[i + 1][j] = A[i][j];
             }
-            table[i + 1][n_vars + n_constraints] = b[i];
+            table[i + 1][n_vars + i] = 1; // Slack variables
+            table[i + 1][n_vars + n_constraints] = b[i]; // RHS value
         }
 
         System.out.println("\n2. Initialize:");
         System.out.println("- Form the initial tableau by introducing slack variables to convert inequalities into equalities.");
-
+        printTable(table);
 
         System.out.println("\n3. Iteratively apply the Simplex method:");
+
+        while (Arrays.stream(table[0]).limit(n_vars).anyMatch(x -> x <- -eps)) {
+            int pivot_column = findPivotColumn(table);
+            //if solution is optimal: pivot_column == -1
+
+            System.out.println("Pivot column: " + pivot_column);
+
+            double[] ratios = new double[n_constraints];
+            Arrays.fill(ratios, Double.POSITIVE_INFINITY);
+            for (int i = 0; i < n_constraints; i++) {
+                if (table[i + 1][pivot_column] > eps) {
+                    ratios[i] = table[i + 1][n_vars + n_constraints] / table[i + 1][pivot_column]; // RHS value / pivot column
+                }
+            }
+
+            int pivot_row = findPivotRow(table, ratios);
+            //if solution is unbounded: pivot_row == -1
+
+            System.out.println("Pivot row: " + pivot_row);
+
+            pivotOperation(table, pivot_row, pivot_column, n_constraints);
+            printTable(table);
+        }
     }
 
     public static void printLpp(double[] C, double[][] A, double[] b) {
@@ -76,5 +100,53 @@ public class Simplex {
         }
 
         System.out.println(problem);
+    }
+
+    public static void pivotOperation(double[][] table, int pivot_row, int pivot_column, int n_constraints) {
+        double pivot_element = table[pivot_row][pivot_column];
+
+        for (int i = 0; i < table[pivot_row].length; i++) {
+            table[pivot_row][i] /= pivot_element;
+        }
+
+        for (int i = 0; i < n_constraints + 1; i++) {
+            if (i != pivot_row) {
+                double multiplier = table[i][pivot_column];
+                for (int j = 0; j < table[i].length; j++) {
+                    table[i][j] -= multiplier * table[pivot_row][j];
+                }
+            }
+        }
+    }
+
+    public static void printTable(double[][] table) {
+        for (double[] row : table) {
+            System.out.println(Arrays.toString(row));
+        }
+    }
+
+    public static int findPivotColumn(double[][] table) {
+        int pivot_column = -1;  // Initialize as -1 to handle cases when no negative values are found
+        for (int i = 0; i < table[0].length - 1; i++) {
+            // Find the most negative coefficient in the objective row
+            if (table[0][i] < 0 && (pivot_column == -1 || table[0][i] < table[0][pivot_column])) {
+                pivot_column = i;
+            }
+        }
+        // Return the index of the entering variable, or -1 if all coefficients are non-negative (optimal solution)
+        return pivot_column;
+    }
+
+    // Find the pivot row (row with the smallest positive ratio)
+    public static int findPivotRow(double[][] table, double[] ratios) {
+        int pivot_row = -1;
+        double min_ratio = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < ratios.length; i++) {
+            if (ratios[i] > 0 && ratios[i] < min_ratio) {
+                min_ratio = ratios[i];
+                pivot_row = i + 1; // Offset by 1 because the first row is the objective row
+            }
+        }
+        return pivot_row;
     }
 }
