@@ -31,6 +31,9 @@ public class Simplex {
         int n_vars = C.length;
         int n_constraints = A.length;
         double[][] table = new double[n_constraints + 1][n_vars + n_constraints + 1];
+        int[] basics = new int[n_constraints];
+
+        String solverState = "";
 
         // Z string initialization
         for (int i = 0; i < n_vars; i++) {
@@ -46,7 +49,12 @@ public class Simplex {
             table[i + 1][n_vars + n_constraints] = b[i]; // RHS value
         }
 
-        System.out.println("\n2. Initialize:");
+        // Filling basics (writing indexes of slack variables)
+        for (int i = 0; i < n_constraints; i++) {
+            basics[i] = n_vars + i;
+        }
+
+        System.out.println("2. Initialize:");
         System.out.println("- Form the initial tableau by introducing slack variables to convert inequalities into equalities.");
         printTable(table);
 
@@ -55,6 +63,10 @@ public class Simplex {
         while (Arrays.stream(table[0]).limit(n_vars).anyMatch(x -> x <- -eps)) {
             int pivot_column = findPivotColumn(table);
             //if solution is optimal: pivot_column == -1
+            if (pivot_column == -1) {
+                solverState = "solved";
+                break;
+            }
 
             System.out.println("Pivot column: " + pivot_column);
 
@@ -68,11 +80,23 @@ public class Simplex {
 
             int pivot_row = findPivotRow(table, ratios);
             //if solution is unbounded: pivot_row == -1
+            if (pivot_row == -1) {
+                solverState = "unbounded";
+                break;
+            }
 
             System.out.println("Pivot row: " + pivot_row);
 
             pivotOperation(table, pivot_row, pivot_column, n_constraints);
             printTable(table);
+
+            basics[pivot_row - 1] = pivot_column;
+        }
+
+        if (solverState.equals("unbounded")) {
+            System.out.println("\nTask is unbounded!");
+        } else {
+            printSolution(basics, table, n_vars, n_constraints);
         }
     }
 
@@ -148,5 +172,30 @@ public class Simplex {
             }
         }
         return pivot_row;
+    }
+
+    public static void printSolution(int[] basics, double[][] table, int n_vars, int n_constraints) {
+        System.out.println("\n4. Solution:");
+
+        double[] answers = new double[n_vars];
+        //searching decision variables in Basics
+        for (int i = 0; i < n_vars; i++) {
+            answers[i] = 0;
+            for (int j = 0; j < n_constraints; j++) {
+                if (basics[j] == i) {
+                    answers[i] = table[j + 1][n_vars + n_constraints]; //if we find decision variable we see it's
+                }
+            }
+        }
+
+        //printing optimal vector of decision variables
+        System.out.print("Optimal vector of decision variables: [");
+        for (int i = 0; i < n_vars - 1; i++) {
+            System.out.print(answers[i] + ", ");
+        }
+        System.out.print(answers[n_vars - 1] + "]\n");
+
+        //printing max(min) value of the objective function
+        System.out.println("Value of the objective function: " + table[0][n_vars + n_constraints]);
     }
 }
